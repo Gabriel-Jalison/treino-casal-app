@@ -28,36 +28,35 @@ const trainingWeekDays = [1, 2, 4, 5];
 
 const videos = {
   "Flexão tradicional": "RRi0-tvte6A",
-  "Supino no chão com halteres": "m4Idhfsq5cU",
-  "Desenvolvimento de omro": "6SbZlzMXYoI",
-  "Desenvolvimento de ombro": "6SbZlzMXYoI",
-  "Elevação lateral": "jannLx4RxKo",
-  "Tríceps francês": "gB-QMYMlHLs",
+  "Supino no chão com halteres": "lpRTahKkhl4",
+  "Desenvolvimento de ombro": "ztl24bolQHg",
+  "Elevação lateral": "rkVV5U7Q4r8",
+  "Tríceps francês": "9EkGm94Q2Ms",
   "Mergulho em banco/cadeira": "jH9RXQjbXqs",
-  "Agachamento com barra": "_D0IYYxnVVA",
-  "Afundo alternado": "jUWT5E6gAso",
+  "Agachamento com barra": "13rt06PvZKY",
+  "Afundo alternado": "pN8SiiepN5U",
   "Agachamento sumô": "ED9NUglcBrs",
-  Stiff: "3ZwwrTtnGJo",
+  Stiff: "cETLf4xXYCQ",
   "Elevação panturrilha": "6Zz_RG0EHFE",
-  "Step subida alternada": "mDVUK_984cM",
-  "Remada curvada": "Vk6c7CjtM14",
-  "Remada unilateral": "Vk6c7CjtM14",
+  "Step subida alternada": "rw_XFgY1_gI",
+  "Remada curvada": "8hmYxGeYb8I",
+  "Remada unilateral": "8hmYxGeYb8I",
   "Rosca direta": "tl3NgUEg0aM",
   "Rosca martelo": "tl3NgUEg0aM",
-  "Abdominal tradicional": "lgqafFHK4H8",
-  "Roda abdominal": "yxKJrB8o-2Y",
-  Prancha: "TbVWMhyax2U",
-  "Elevação pélvica": "u3Jg9yOHOMM",
-  "Coice com elástico": "Zf-w4Hg-cn0",
+  "Abdominal tradicional": "Vh-HZqPR0ew",
+  "Roda abdominal": "lgqafFHK4H8",
+  Prancha: "Yu0wjtD5FkU",
+  "Elevação pélvica": "pY9qYxyCO_c",
+  "Coice com elástico": "2Akyaerg_2A",
   "Flexão apoiando joelhos": "NZM9dui2MZo",
   "Abdominal bicicleta": "pMgnie8K21g",
-  "Jump leve": "18TEdMhn6fw",
+  "Jump leve": "-M2GAQuUl7I",
   Burpee: "UcU2i5G790s",
 };
 
 function getYoutubeEmbedUrl(videoId) {
   if (!videoId) return "";
-  return `https://www.youtube.com/embed/${videoId}`;
+  return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
 }
 
 const plans = {
