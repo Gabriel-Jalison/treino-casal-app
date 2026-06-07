@@ -20,10 +20,14 @@ import {
   Target,
   Volume2,
   Zap,
+  Settings,
+  Save,
+  Trash2,
 } from "lucide-react";
 import "./App.css";
 
 const STORAGE_KEY = "treino-casal-progress";
+const PREFERENCES_KEY = "treino-casal-preferences";
 const trainingWeekDays = [1, 2, 4, 5];
 
 const videos = {
@@ -570,6 +574,32 @@ function getInitialProgress() {
   }
 }
 
+function getInitialPreferences() {
+  const defaultPreferences = {
+    maleName: "Gabriel",
+    femaleName: "Iasmim",
+    defaultGender: "homem",
+    soundEnabled: true,
+    vibrationEnabled: true,
+  };
+
+  try {
+    const savedPreferences = localStorage.getItem(PREFERENCES_KEY);
+
+    if (!savedPreferences) {
+      return defaultPreferences;
+    }
+
+    return {
+      ...defaultPreferences,
+      ...JSON.parse(savedPreferences),
+    };
+  } catch (error) {
+    console.error("Erro ao carregar preferências:", error);
+    return defaultPreferences;
+  }
+}
+
 function getSeriesCount(setsText) {
   const normalized = String(setsText || "").toLowerCase();
   const directMatch = normalized.match(/^(\d+)\s*x/);
@@ -619,8 +649,16 @@ function getRandomMessage() {
 
 function App() {
   const [screen, setScreen] = useState("login");
-  const [name, setName] = useState("Gabriel");
-  const [gender, setGender] = useState("homem");
+  const [initialPreferences] = useState(() => getInitialPreferences());
+  const [maleName, setMaleName] = useState(initialPreferences.maleName);
+  const [femaleName, setFemaleName] = useState(initialPreferences.femaleName);
+  const [gender, setGender] = useState(initialPreferences.defaultGender);
+  const [soundEnabled, setSoundEnabled] = useState(
+    initialPreferences.soundEnabled,
+  );
+  const [vibrationEnabled, setVibrationEnabled] = useState(
+    initialPreferences.vibrationEnabled,
+  );
   const [selectedDay, setSelectedDay] = useState(getTrainingDay());
   const [currentExercise, setCurrentExercise] = useState(0);
   const [currentSeries, setCurrentSeries] = useState(1);
@@ -639,7 +677,7 @@ function App() {
   const [lastWorkoutDoneAt, setLastWorkoutDoneAt] = useState(
     initialProgress.lastWorkoutDoneAt,
   );
-  const [lastResetAt] = useState(initialProgress.lastResetAt);
+  const [lastResetAt, setLastResetAt] = useState(initialProgress.lastResetAt);
   const [reward, setReward] = useState(null);
 
   const wasResting = useRef(false);
@@ -659,6 +697,8 @@ function App() {
 
   const level = Math.floor(xp / 250) + 1;
   const levelProgress = xp % 250;
+  const displayName =
+    gender === "mulher" ? femaleName || "Iasmim" : maleName || "Gabriel";
 
   useEffect(() => {
     localStorage.setItem(
@@ -684,6 +724,19 @@ function App() {
   ]);
 
   useEffect(() => {
+    localStorage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({
+        maleName,
+        femaleName,
+        defaultGender: gender,
+        soundEnabled,
+        vibrationEnabled,
+      }),
+    );
+  }, [maleName, femaleName, gender, soundEnabled, vibrationEnabled]);
+
+  useEffect(() => {
     if (restSeconds > 0) {
       wasResting.current = true;
       const timer = setInterval(() => {
@@ -695,10 +748,10 @@ function App() {
 
     if (restSeconds === 0 && wasResting.current) {
       wasResting.current = false;
-      playSound("rest");
-      vibrate([120, 60, 120]);
+      if (soundEnabled) playSound("rest");
+      if (vibrationEnabled) vibrate([120, 60, 120]);
     }
-  }, [restSeconds]);
+  }, [restSeconds, soundEnabled, vibrationEnabled]);
 
   function handleLogin() {
     setHasStartedBefore(true);
@@ -732,8 +785,8 @@ function App() {
   }
 
   function finishSeriesOrExercise() {
-    playSound("success");
-    vibrate([80]);
+    if (soundEnabled) playSound("success");
+    if (vibrationEnabled) vibrate([80]);
 
     if (!isLastSeries) {
       setXp((value) => value + 5);
@@ -824,6 +877,27 @@ function App() {
     setRestSeconds(0);
   }
 
+  function resetAllProgress() {
+    const confirmed = window.confirm(
+      "Tem certeza que deseja zerar todo o progresso? Isso remove XP, sequência e treinos concluídos.",
+    );
+
+    if (!confirmed) return;
+
+    setCompleted({});
+    setWorkoutDoneDates([]);
+    setRestSeconds(0);
+    setStreak(0);
+    setXp(0);
+    setHasStartedBefore(true);
+    setLastWorkoutDoneAt(null);
+    setLastResetAt(getDateKey());
+    setReward(null);
+    setCurrentExercise(0);
+    setCurrentSeries(1);
+    setScreen("dashboard");
+  }
+
   return (
     <div className="app">
       <div className="phone">
@@ -853,8 +927,8 @@ function App() {
                 <div className="input-box">
                   <User size={20} />
                   <input
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
+                    value={maleName}
+                    onChange={(event) => setMaleName(event.target.value)}
                   />
                 </div>
 
@@ -911,15 +985,23 @@ function App() {
               <div className="topbar">
                 <div>
                   <p>Bem-vindo,</p>
-                  <h2>{gender === "mulher" ? "Iasmim" : name || "Aluno"}</h2>
+                  <h2>{displayName}</h2>
                 </div>
 
-                <button
-                  className="small-btn"
-                  onClick={() => setScreen("select")}
-                >
-                  Trocar plano
-                </button>
+                <div className="topbar-actions">
+                  <button
+                    className="small-btn"
+                    onClick={() => setScreen("settings")}
+                  >
+                    <Settings size={16} /> Perfil
+                  </button>
+                  <button
+                    className="small-btn"
+                    onClick={() => setScreen("select")}
+                  >
+                    Trocar plano
+                  </button>
+                </div>
               </div>
 
               <div className="stats-grid">
@@ -1012,6 +1094,140 @@ function App() {
                     done={completedList.includes(index)}
                   />
                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {screen === "settings" && (
+            <motion.div
+              key="settings"
+              className="screen"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="topbar">
+                <div>
+                  <p>Configurações</p>
+                  <h2>Perfil do app</h2>
+                </div>
+
+                <button
+                  className="small-btn"
+                  onClick={() => setScreen("dashboard")}
+                >
+                  Voltar
+                </button>
+              </div>
+
+              <div className="card settings-card">
+                <div className="settings-title">
+                  <User size={22} />
+                  <div>
+                    <strong>Nomes dos perfis</strong>
+                    <span>Personalize como cada treino aparece no painel.</span>
+                  </div>
+                </div>
+
+                <label>Nome do perfil masculino</label>
+                <div className="input-box">
+                  <Mars size={20} />
+                  <input
+                    value={maleName}
+                    onChange={(event) => setMaleName(event.target.value)}
+                  />
+                </div>
+
+                <label>Nome do perfil feminino</label>
+                <div className="input-box">
+                  <Venus size={20} />
+                  <input
+                    value={femaleName}
+                    onChange={(event) => setFemaleName(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="card settings-card">
+                <div className="settings-title">
+                  <Settings size={22} />
+                  <div>
+                    <strong>Experiência do treino</strong>
+                    <span>Controle som, vibração e perfil padrão.</span>
+                  </div>
+                </div>
+
+                <div className="settings-row">
+                  <div>
+                    <strong>Som de progresso</strong>
+                    <span>Toques ao finalizar série e descanso.</span>
+                  </div>
+                  <button
+                    className={soundEnabled ? "toggle active" : "toggle"}
+                    onClick={() => setSoundEnabled((value) => !value)}
+                  >
+                    {soundEnabled ? "Ligado" : "Desligado"}
+                  </button>
+                </div>
+
+                <div className="settings-row">
+                  <div>
+                    <strong>Vibração</strong>
+                    <span>Funciona quando o celular/navegador permitir.</span>
+                  </div>
+                  <button
+                    className={vibrationEnabled ? "toggle active" : "toggle"}
+                    onClick={() => setVibrationEnabled((value) => !value)}
+                  >
+                    {vibrationEnabled ? "Ligada" : "Desligada"}
+                  </button>
+                </div>
+
+                <div className="profile-switch">
+                  <button
+                    className={gender === "homem" ? "active" : ""}
+                    onClick={() => handleSelectGender("homem")}
+                  >
+                    <Mars size={18} /> {maleName || "Gabriel"}
+                  </button>
+                  <button
+                    className={gender === "mulher" ? "active" : ""}
+                    onClick={() => handleSelectGender("mulher")}
+                  >
+                    <Venus size={18} /> {femaleName || "Iasmim"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="card settings-card danger-card">
+                <div className="settings-title">
+                  <Trash2 size={22} />
+                  <div>
+                    <strong>Zerar progresso</strong>
+                    <span>Use apenas para recomeçar do zero.</span>
+                  </div>
+                </div>
+
+                <button className="danger-btn" onClick={resetAllProgress}>
+                  <Trash2 size={18} /> Zerar XP, sequência e treinos
+                </button>
+              </div>
+
+              <div className="card settings-card app-info-card">
+                <div className="settings-title">
+                  <Save size={22} />
+                  <div>
+                    <strong>Salvamento atual</strong>
+                    <span>
+                      Versão 1 salva dados no navegador deste aparelho.
+                    </span>
+                  </div>
+                </div>
+                <p>
+                  Se trocar de celular, navegador ou limpar dados do
+                  Safari/Chrome, o progresso pode não aparecer. Na versão futura
+                  com login real, isso ficará salvo em banco de dados.
+                </p>
               </div>
             </motion.div>
           )}

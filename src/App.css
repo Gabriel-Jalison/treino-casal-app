@@ -631,3 +631,137 @@ label {
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 }
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.settings-card {
+  margin-bottom: 16px;
+}
+
+.settings-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.settings-title svg {
+  color: #34d399;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.settings-title strong {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.settings-title span {
+  display: block;
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.settings-row strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.settings-row span {
+  display: block;
+  color: #a1a1aa;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.toggle {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+  min-width: 88px;
+}
+
+.toggle.active {
+  background: #34d399;
+  color: #020617;
+}
+
+.profile-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.profile-switch button {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  padding: 13px 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.profile-switch button.active {
+  background: #34d399;
+  color: #020617;
+  border-color: #34d399;
+}
+
+.danger-card {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.danger-card .settings-title svg {
+  color: #f87171;
+}
+
+.danger-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+  padding: 15px;
+  font-size: 14px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.app-info-card p {
+  color: #a1a1aa;
+  line-height: 1.5;
+  font-size: 13px;
+  margin: 0;
+}
