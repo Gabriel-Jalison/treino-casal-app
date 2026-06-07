@@ -454,6 +454,26 @@ function getTrainingDay() {
   return 0;
 }
 
+function getNextWorkoutInfo(plan) {
+  const today = new Date().getDay();
+  const schedule = [
+    { weekDay: 1, index: 0 },
+    { weekDay: 2, index: 1 },
+    { weekDay: 4, index: 2 },
+    { weekDay: 5, index: 3 },
+  ];
+
+  const next = schedule.find((item) => item.weekDay > today) || schedule[0];
+  const rawDaysUntil = (next.weekDay - today + 7) % 7;
+  const daysUntil = rawDaysUntil === 0 ? 7 : rawDaysUntil;
+
+  return {
+    daysUntil,
+    workout: plan[next.index],
+    index: next.index,
+  };
+}
+
 function getTrainingIndexByWeekDay(weekDay) {
   if (weekDay === 1) return 0;
   if (weekDay === 2) return 1;
@@ -699,6 +719,27 @@ function App() {
   const levelProgress = xp % 250;
   const displayName =
     gender === "mulher" ? femaleName || "Iasmim" : maleName || "Gabriel";
+  const todayTrainingIndex = getTrainingIndexByWeekDay(new Date().getDay());
+  const isTodayTrainingDay = todayTrainingIndex !== null;
+  const todayWorkout = isTodayTrainingDay ? plan[todayTrainingIndex] : null;
+  const todayWorkoutKey = isTodayTrainingDay
+    ? `${weekKey}-${todayTrainingIndex}`
+    : null;
+  const todayCompletedKey = isTodayTrainingDay
+    ? `${gender}-${weekKey}-${todayTrainingIndex}`
+    : null;
+  const todayCompletedList = todayCompletedKey
+    ? completed[todayCompletedKey] || []
+    : [];
+  const todayProgress = todayWorkout
+    ? Math.round(
+        (todayCompletedList.length / todayWorkout.exercises.length) * 100,
+      )
+    : 0;
+  const todayIsCompleted = todayWorkoutKey
+    ? workoutDoneDates.includes(todayWorkoutKey)
+    : false;
+  const nextWorkoutInfo = getNextWorkoutInfo(plan);
 
   useEffect(() => {
     localStorage.setItem(
@@ -922,6 +963,18 @@ function App() {
                 Cronograma, vídeos, descanso e metas para manter constância.
               </p>
 
+              <div className="hero-badges">
+                <span>
+                  <Flame size={14} /> Sequência
+                </span>
+                <span>
+                  <Star size={14} /> XP
+                </span>
+                <span>
+                  <PlayCircle size={14} /> Vídeos
+                </span>
+              </div>
+
               <div className="card">
                 <label>Usuário</label>
                 <div className="input-box">
@@ -1026,6 +1079,75 @@ function App() {
                     style={{ width: `${(levelProgress / 250) * 100}%` }}
                   ></div>
                 </div>
+              </div>
+
+              <div
+                className={
+                  isTodayTrainingDay ? "today-card" : "today-card rest-day"
+                }
+              >
+                <div className="today-card-header">
+                  <div className="today-icon">
+                    {isTodayTrainingDay ? (
+                      <Target size={24} />
+                    ) : (
+                      <Dumbbell size={24} />
+                    )}
+                  </div>
+
+                  <div>
+                    <span>
+                      {isTodayTrainingDay
+                        ? "Treino de hoje"
+                        : "Hoje é dia de descanso"}
+                    </span>
+                    <h2>
+                      {isTodayTrainingDay
+                        ? todayWorkout.title
+                        : "Recuperação ativa"}
+                    </h2>
+                    <p>
+                      {isTodayTrainingDay
+                        ? todayIsCompleted
+                          ? "Treino concluído. Excelente constância!"
+                          : `${todayWorkout.focus} • ${todayProgress}% concluído`
+                        : `Próximo treino: ${nextWorkoutInfo.workout.day} — ${nextWorkoutInfo.workout.title}`}
+                    </p>
+                  </div>
+                </div>
+
+                {isTodayTrainingDay ? (
+                  <>
+                    <div className="progress-bg">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${todayProgress}%` }}
+                      ></div>
+                    </div>
+
+                    <button
+                      className="primary-btn today-btn"
+                      onClick={() => {
+                        setSelectedDay(todayTrainingIndex);
+                        setCurrentExercise(0);
+                        setCurrentSeries(1);
+                        setRestSeconds(0);
+                        setScreen("workout");
+                      }}
+                    >
+                      {todayIsCompleted
+                        ? "Refazer treino"
+                        : "Começar treino de hoje"}{" "}
+                      <PlayCircle size={20} />
+                    </button>
+                  </>
+                ) : (
+                  <div className="rest-suggestions">
+                    <span>Alongamento leve</span>
+                    <span>Caminhada 20 min</span>
+                    <span>Hidratação</span>
+                  </div>
+                )}
               </div>
 
               <div className="section-title">

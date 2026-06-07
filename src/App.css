@@ -765,3 +765,111 @@ label {
   font-size: 13px;
   margin: 0;
 }
+
+.hero-badges {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 18px;
+  flex-wrap: wrap;
+}
+
+.hero-badges span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d1fae5;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.today-card {
+  background: linear-gradient(
+    135deg,
+    rgba(52, 211, 153, 0.18),
+    rgba(255, 255, 255, 0.06)
+  );
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  border-radius: 30px;
+  padding: 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 20px 60px rgba(52, 211, 153, 0.08);
+}
+
+.today-card.rest-day {
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.18),
+    rgba(255, 255, 255, 0.06)
+  );
+  border-color: rgba(139, 92, 246, 0.26);
+}
+
+.today-card-header {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+.today-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  background: #34d399;
+  color: #020617;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 14px 34px rgba(52, 211, 153, 0.22);
+}
+
+.rest-day .today-icon {
+  background: #8b5cf6;
+  color: white;
+}
+
+.today-card span {
+  display: block;
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.today-card h2 {
+  font-size: 23px;
+  margin-bottom: 6px;
+}
+
+.today-card p {
+  margin: 0;
+  color: #d4d4d8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.today-btn {
+  margin-top: 14px;
+}
+
+.rest-suggestions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.rest-suggestions span {
+  color: #e9d5ff;
+  background: rgba(139, 92, 246, 0.14);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+}
