@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dumbbell,
@@ -18,12 +18,18 @@ import {
   Home,
   Medal,
   Target,
+  Volume2,
+  Zap,
 } from "lucide-react";
 import "./App.css";
+
+const STORAGE_KEY = "treino-casal-progress";
+const trainingWeekDays = [1, 2, 4, 5];
 
 const videos = {
   "Flexão tradicional": "RRi0-tvte6A",
   "Supino no chão com halteres": "m4Idhfsq5cU",
+  "Desenvolvimento de omro": "6SbZlzMXYoI",
   "Desenvolvimento de ombro": "6SbZlzMXYoI",
   "Elevação lateral": "jannLx4RxKo",
   "Tríceps francês": "gB-QMYMlHLs",
@@ -50,10 +56,7 @@ const videos = {
 };
 
 function getYoutubeEmbedUrl(videoId) {
-  if (!videoId) {
-    return "";
-  }
-
+  if (!videoId) return "";
   return `https://www.youtube.com/embed/${videoId}`;
 }
 
@@ -430,24 +433,36 @@ const plans = {
   ],
 };
 
+const motivationalMessages = [
+  "Boa! Cada série conta.",
+  "Você está construindo constância.",
+  "Excelente! Continua no ritmo.",
+  "Mais um passo para evoluir.",
+  "Foco total. Você está indo bem.",
+  "Treino feito é progresso real.",
+];
+
 function getTrainingDay() {
   const day = new Date().getDay();
-
   if (day === 1) return 0;
   if (day === 2) return 1;
   if (day === 4) return 2;
   if (day === 5) return 3;
-
   return 0;
 }
 
-const trainingWeekDays = [1, 2, 4, 5];
+function getTrainingIndexByWeekDay(weekDay) {
+  if (weekDay === 1) return 0;
+  if (weekDay === 2) return 1;
+  if (weekDay === 4) return 2;
+  if (weekDay === 5) return 3;
+  return null;
+}
 
 function getDateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 }
 
@@ -455,76 +470,84 @@ function getWeekKey(date = new Date()) {
   const current = new Date(date);
   const day = current.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
-
   current.setDate(current.getDate() + diffToMonday);
-
   return getDateKey(current);
+}
+
+function getWorkoutKeyFromDate(date = new Date()) {
+  const trainingIndex = getTrainingIndexByWeekDay(date.getDay());
+  if (trainingIndex === null) return null;
+  return `${getWeekKey(date)}-${trainingIndex}`;
 }
 
 function getPreviousTrainingDate() {
   const date = new Date();
-
   for (let i = 1; i <= 7; i++) {
     const previous = new Date();
     previous.setDate(date.getDate() - i);
-
-    if (trainingWeekDays.includes(previous.getDay())) {
-      return previous;
-    }
+    if (trainingWeekDays.includes(previous.getDay())) return previous;
   }
-
   return null;
 }
 
-function shouldResetProgress(progress) {
-  if (!progress?.hasStartedBefore) {
-    return false;
-  }
-
-  const hasAnyProgress = (progress.xp || 0) > 0 || (progress.streak || 0) > 0;
-
-  if (!hasAnyProgress) {
-    return false;
-  }
-
-  const previousTrainingDate = getPreviousTrainingDate();
-
-  if (!previousTrainingDate) {
-    return false;
-  }
-
-  const previousTrainingKey = getDateKey(previousTrainingDate);
-  const completedPreviousTraining =
-    progress.workoutDoneDates?.includes(previousTrainingKey);
-
-  if (completedPreviousTraining) {
-    return false;
-  }
-
-  // Evita zerar exatamente na virada do dia. O app só considera perda após 04:00
-  // do dia seguinte ao treino perdido.
-  const resetDeadline = new Date(previousTrainingDate);
-  resetDeadline.setDate(resetDeadline.getDate() + 1);
-  resetDeadline.setHours(4, 0, 0, 0);
-
-  return new Date() >= resetDeadline;
-}
-
-function getInitialProgress() {
-  const emptyProgress = {
+function getEmptyProgress() {
+  return {
     completed: {},
     workoutDoneDates: [],
     streak: 0,
     xp: 0,
     hasStartedBefore: false,
+    lastWorkoutDoneAt: null,
+    lastResetAt: null,
   };
+}
+
+function shouldResetProgress(progress) {
+  if (!progress?.hasStartedBefore) return false;
+
+  const hasAnyProgress = (progress.xp || 0) > 0 || (progress.streak || 0) > 0;
+  if (!hasAnyProgress) return false;
+
+  const today = new Date();
+  const todayKey = getDateKey(today);
+
+  // Não zera no fim de semana. Sábado e domingo são descanso/teste livre.
+  if (!trainingWeekDays.includes(today.getDay())) return false;
+
+  // Se acabou de concluir um treino nas últimas 24h, não zera ao fechar/abrir o app.
+  if (progress.lastWorkoutDoneAt) {
+    const lastDone = new Date(progress.lastWorkoutDoneAt);
+    const hoursSinceLastDone =
+      (today.getTime() - lastDone.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceLastDone < 24) return false;
+  }
+
+  const previousTrainingDate = getPreviousTrainingDate();
+  if (!previousTrainingDate) return false;
+
+  const previousWorkoutKey = getWorkoutKeyFromDate(previousTrainingDate);
+  if (!previousWorkoutKey) return false;
+
+  const completedPreviousTraining =
+    progress.workoutDoneDates?.includes(previousWorkoutKey);
+  if (completedPreviousTraining) return false;
+
+  // Evita zerar repetidamente no mesmo dia.
+  if (progress.lastResetAt === todayKey) return false;
+
+  // Só zera depois das 04:00 do dia atual, para evitar problemas na virada de data.
+  const resetDeadline = new Date(today);
+  resetDeadline.setHours(4, 0, 0, 0);
+
+  return today >= resetDeadline;
+}
+
+function getInitialProgress() {
+  const emptyProgress = getEmptyProgress();
 
   try {
-    const savedProgress = localStorage.getItem("treino-casal-progress");
-
-    if (!savedProgress) {
-      return emptyProgress;
-    }
+    const savedProgress = localStorage.getItem(STORAGE_KEY);
+    if (!savedProgress) return emptyProgress;
 
     const progress = {
       ...emptyProgress,
@@ -532,11 +555,13 @@ function getInitialProgress() {
     };
 
     if (shouldResetProgress(progress)) {
-      localStorage.setItem(
-        "treino-casal-progress",
-        JSON.stringify(emptyProgress),
-      );
-      return emptyProgress;
+      const resetProgress = {
+        ...emptyProgress,
+        hasStartedBefore: true,
+        lastResetAt: getDateKey(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(resetProgress));
+      return resetProgress;
     }
 
     return progress;
@@ -546,84 +571,51 @@ function getInitialProgress() {
   }
 }
 
-function getTotalSeries(setsText) {
-  const text = String(setsText || "").toLowerCase();
-  const seriesMatch = text.match(/^(\d+)\s*x/);
-  const roundsMatch = text.match(/^(\d+)\s*voltas?/);
+function getSeriesCount(setsText) {
+  const normalized = String(setsText || "").toLowerCase();
+  const directMatch = normalized.match(/^(\d+)\s*x/);
+  const roundsMatch = normalized.match(/^(\d+)\s*voltas?/);
 
-  if (seriesMatch) {
-    return Number(seriesMatch[1]);
-  }
-
-  if (roundsMatch) {
-    return Number(roundsMatch[1]);
-  }
+  if (directMatch) return Number(directMatch[1]);
+  if (roundsMatch) return Number(roundsMatch[1]);
 
   return 1;
 }
 
-function vibrateDevice(pattern = [80]) {
-  if ("vibrate" in navigator) {
-    navigator.vibrate(pattern);
-  }
-}
-
-function playTone({ frequency = 660, duration = 130, type = "sine" } = {}) {
+function playSound(type = "success") {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
     const audioContext = new AudioContext();
     const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    const gain = audioContext.createGain();
 
-    oscillator.type = type;
-    oscillator.frequency.value = frequency;
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    oscillator.type = "sine";
+    oscillator.frequency.value = type === "rest" ? 880 : 660;
+    gain.gain.value = 0.08;
 
-    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.2,
-      audioContext.currentTime + 0.02,
-    );
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.0001,
-      audioContext.currentTime + duration / 1000,
-    );
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
 
     oscillator.start();
-    oscillator.stop(audioContext.currentTime + duration / 1000);
+    oscillator.stop(audioContext.currentTime + 0.18);
   } catch (error) {
-    console.warn("Som não reproduzido pelo navegador:", error);
+    console.warn("Som não disponível neste navegador.", error);
   }
 }
 
-function playSuccessSound() {
-  playTone({ frequency: 720, duration: 120, type: "triangle" });
-  setTimeout(
-    () => playTone({ frequency: 920, duration: 150, type: "triangle" }),
-    120,
-  );
+function vibrate(pattern = [80]) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch (error) {
+    console.warn("Vibração não disponível neste navegador.", error);
+  }
 }
 
-function playRestFinishedSound() {
-  playTone({ frequency: 880, duration: 160, type: "square" });
-  setTimeout(
-    () => playTone({ frequency: 880, duration: 160, type: "square" }),
-    220,
-  );
-}
-
-const motivationMessages = [
-  "Boa! Mais uma etapa vencida.",
-  "Você está construindo constância.",
-  "Foco total. O progresso vem na repetição.",
-  "Excelente! Continue nesse ritmo.",
-  "Disciplina de hoje, resultado de amanhã.",
-];
-
-function getMotivationMessage() {
-  const index = Math.floor(Math.random() * motivationMessages.length);
-  return motivationMessages[index];
+function getRandomMessage() {
+  const index = Math.floor(Math.random() * motivationalMessages.length);
+  return motivationalMessages[index];
 }
 
 function App() {
@@ -633,8 +625,6 @@ function App() {
   const [selectedDay, setSelectedDay] = useState(getTrainingDay());
   const [currentExercise, setCurrentExercise] = useState(0);
   const [currentSeries, setCurrentSeries] = useState(1);
-  const [feedback, setFeedback] = useState(null);
-  const [pendingAction, setPendingAction] = useState(null);
   const [initialProgress] = useState(() => getInitialProgress());
 
   const [completed, setCompleted] = useState(initialProgress.completed);
@@ -647,54 +637,69 @@ function App() {
   const [hasStartedBefore, setHasStartedBefore] = useState(
     initialProgress.hasStartedBefore,
   );
+  const [lastWorkoutDoneAt, setLastWorkoutDoneAt] = useState(
+    initialProgress.lastWorkoutDoneAt,
+  );
+  const [lastResetAt] = useState(initialProgress.lastResetAt);
+  const [reward, setReward] = useState(null);
+
+  const wasResting = useRef(false);
 
   const plan = plans[gender];
   const workout = plan[selectedDay];
   const exercises = workout.exercises;
   const weekKey = getWeekKey();
   const key = `${gender}-${weekKey}-${selectedDay}`;
+  const selectedWorkoutKey = `${weekKey}-${selectedDay}`;
   const completedList = completed[key] || [];
   const progress = Math.round((completedList.length / exercises.length) * 100);
   const activeExercise = exercises[currentExercise];
-  const totalSeries = getTotalSeries(activeExercise.sets);
-  const exerciseProgress =
-    ((currentExercise + (currentSeries - 1) / totalSeries) / exercises.length) *
-    100;
+  const totalSeries = getSeriesCount(activeExercise.sets);
+  const isLastSeries = currentSeries >= totalSeries;
+  const isLastExercise = currentExercise >= exercises.length - 1;
 
   const level = Math.floor(xp / 250) + 1;
   const levelProgress = xp % 250;
 
   useEffect(() => {
-    if (restSeconds <= 0) return;
-
-    const timer = setInterval(() => {
-      setRestSeconds((seconds) => {
-        if (seconds <= 1) {
-          clearInterval(timer);
-          playRestFinishedSound();
-          vibrateDevice([160, 80, 160]);
-          return 0;
-        }
-
-        return seconds - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [restSeconds]);
-
-  useEffect(() => {
     localStorage.setItem(
-      "treino-casal-progress",
+      STORAGE_KEY,
       JSON.stringify({
         completed,
         workoutDoneDates,
         streak,
         xp,
         hasStartedBefore,
+        lastWorkoutDoneAt,
+        lastResetAt,
       }),
     );
-  }, [completed, workoutDoneDates, streak, xp, hasStartedBefore]);
+  }, [
+    completed,
+    workoutDoneDates,
+    streak,
+    xp,
+    hasStartedBefore,
+    lastWorkoutDoneAt,
+    lastResetAt,
+  ]);
+
+  useEffect(() => {
+    if (restSeconds > 0) {
+      wasResting.current = true;
+      const timer = setInterval(() => {
+        setRestSeconds((seconds) => Math.max(0, seconds - 1));
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+
+    if (restSeconds === 0 && wasResting.current) {
+      wasResting.current = false;
+      playSound("rest");
+      vibrate([120, 60, 120]);
+    }
+  }, [restSeconds]);
 
   function handleLogin() {
     setHasStartedBefore(true);
@@ -710,68 +715,43 @@ function App() {
     setScreen("dashboard");
   }
 
-  function showFeedback({
+  function createReward({
     title,
-    message,
-    xpGained,
-    emoji = "💪",
-    kind = "series",
+    description,
+    xpValue,
+    afterAction,
+    restTime = 0,
   }) {
-    setFeedback({
+    setReward({
       title,
-      message,
-      xpGained,
-      emoji,
-      kind,
+      description,
+      xpValue,
+      afterAction,
+      restTime,
+      message: getRandomMessage(),
     });
   }
 
-  function closeFeedback() {
-    const action = pendingAction;
-
-    setFeedback(null);
-    setPendingAction(null);
-
-    if (action?.type === "nextExercise") {
-      setCurrentExercise((value) => value + 1);
-      setCurrentSeries(1);
-      return;
-    }
-
-    if (action?.type === "completeWorkout") {
-      setCurrentSeries(1);
-      setScreen("complete");
-    }
-  }
-
-  function finishExercise() {
-    const list = completed[key] || [];
-    const isLastSeries = currentSeries >= totalSeries;
-    const isLastExercise = currentExercise >= exercises.length - 1;
-
-    playSuccessSound();
-    vibrateDevice([80, 40, 80]);
+  function finishSeriesOrExercise() {
+    playSound("success");
+    vibrate([80]);
 
     if (!isLastSeries) {
-      setCurrentSeries((value) => value + 1);
       setXp((value) => value + 5);
-
-      if (activeExercise.rest > 0) {
-        setRestSeconds(activeExercise.rest);
-      }
-
-      showFeedback({
+      createReward({
         title: `Série ${currentSeries} concluída!`,
-        message: getMotivationMessage(),
-        xpGained: 5,
-        emoji: "🔥",
-        kind: "series",
+        description: `Faltam ${totalSeries - currentSeries} série(s) neste exercício.`,
+        xpValue: 5,
+        afterAction: "next-series",
+        restTime: activeExercise.rest,
       });
-
       return;
     }
 
-    if (!list.includes(currentExercise)) {
+    const list = completed[key] || [];
+    const alreadyCompletedExercise = list.includes(currentExercise);
+
+    if (!alreadyCompletedExercise) {
       setCompleted({
         ...completed,
         [key]: [...list, currentExercise],
@@ -779,38 +759,60 @@ function App() {
       setXp((value) => value + 20);
     }
 
-    if (activeExercise.rest > 0 && !isLastExercise) {
-      setRestSeconds(activeExercise.rest);
-    }
-
     if (!isLastExercise) {
-      setPendingAction({ type: "nextExercise" });
-      showFeedback({
+      createReward({
         title: "Exercício concluído!",
-        message: "Você desbloqueou o próximo desafio.",
-        xpGained: 20,
-        emoji: "🏋️",
-        kind: "exercise",
+        description: "Você avançou para o próximo movimento.",
+        xpValue: alreadyCompletedExercise ? 0 : 20,
+        afterAction: "next-exercise",
+        restTime: activeExercise.rest,
       });
       return;
     }
 
-    const todayKey = getDateKey();
+    let workoutBonus = 0;
 
-    if (!workoutDoneDates.includes(todayKey)) {
-      setWorkoutDoneDates([...workoutDoneDates, todayKey]);
+    if (!workoutDoneDates.includes(selectedWorkoutKey)) {
+      workoutBonus = workout.xp;
+      setWorkoutDoneDates([...workoutDoneDates, selectedWorkoutKey]);
       setStreak((value) => value + 1);
       setXp((value) => value + workout.xp);
+      setLastWorkoutDoneAt(new Date().toISOString());
     }
 
-    setPendingAction({ type: "completeWorkout" });
-    showFeedback({
-      title: "Treino finalizado!",
-      message: `Missão cumprida. Você ganhou +${workout.xp} XP extra.`,
-      xpGained: workout.xp,
-      emoji: "🏆",
-      kind: "workout",
+    createReward({
+      title: "Treino concluído!",
+      description: "Você completou o treino do dia. Excelente constância!",
+      xpValue: (alreadyCompletedExercise ? 0 : 20) + workoutBonus,
+      afterAction: "complete-workout",
+      restTime: 0,
     });
+  }
+
+  function continueAfterReward() {
+    if (!reward) return;
+
+    const { afterAction, restTime } = reward;
+    setReward(null);
+
+    if (afterAction === "next-series") {
+      setCurrentSeries((value) => value + 1);
+      if (restTime > 0) setRestSeconds(restTime);
+      return;
+    }
+
+    if (afterAction === "next-exercise") {
+      setCurrentExercise((value) => value + 1);
+      setCurrentSeries(1);
+      if (restTime > 0) setRestSeconds(restTime);
+      return;
+    }
+
+    if (afterAction === "complete-workout") {
+      setCurrentSeries(1);
+      setRestSeconds(0);
+      setScreen("complete");
+    }
   }
 
   function resetWorkout() {
@@ -821,8 +823,6 @@ function App() {
     setCurrentExercise(0);
     setCurrentSeries(1);
     setRestSeconds(0);
-    setFeedback(null);
-    setPendingAction(null);
   }
 
   return (
@@ -1049,13 +1049,10 @@ function App() {
               )}
 
               <p className="subtitle">
-                Exercício {currentExercise + 1} de {exercises.length}
+                Exercício {currentExercise + 1} de {exercises.length} • Série{" "}
+                {currentSeries} de {totalSeries}
               </p>
               <h1>{activeExercise.name}</h1>
-
-              <div className="series-pill">
-                Série {currentSeries} de {totalSeries}
-              </div>
 
               <div className="card">
                 <div className="video-box">
@@ -1076,9 +1073,13 @@ function App() {
                 </div>
 
                 <Info label="Séries/Repetições" value={activeExercise.sets} />
+                <Info
+                  label="Série atual"
+                  value={`${currentSeries} de ${totalSeries}`}
+                />
                 <Info label="Equipamento" value={activeExercise.equipment} />
                 <Info
-                  label="Descanso após finalizar"
+                  label="Descanso após finalizar série"
                   value={
                     activeExercise.rest > 0
                       ? `${activeExercise.rest} segundos`
@@ -1087,17 +1088,20 @@ function App() {
                 />
               </div>
 
-              <div className="progress-bg">
+              <div className="progress-bg workout-progress">
                 <div
                   className="progress-fill"
-                  style={{ width: `${exerciseProgress}%` }}
+                  style={{
+                    width: `${(((currentExercise + (currentSeries - 1) / totalSeries) / exercises.length) * 100).toFixed(1)}%`,
+                  }}
                 ></div>
               </div>
 
-              <button className="primary-btn big" onClick={finishExercise}>
-                {currentSeries < totalSeries
-                  ? `Finalizar série ${currentSeries}`
-                  : "Finalizar exercício"}
+              <button
+                className="primary-btn big"
+                onClick={finishSeriesOrExercise}
+              >
+                {isLastSeries ? "Finalizar exercício" : "Finalizar série"}{" "}
                 <CheckCircle2 size={24} />
               </button>
             </motion.div>
@@ -1139,59 +1143,54 @@ function App() {
           )}
         </AnimatePresence>
 
-        {feedback && (
-          <FeedbackOverlay
-            feedback={feedback}
-            progress={Math.min(100, Math.round(exerciseProgress))}
-            onContinue={closeFeedback}
-          />
-        )}
+        <AnimatePresence>
+          {reward && (
+            <motion.div
+              className="reward-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="reward-card"
+                initial={{ scale: 0.85, y: 30 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+              >
+                <motion.div
+                  className="reward-icon"
+                  animate={{
+                    rotate: [0, -8, 8, -4, 4, 0],
+                    scale: [1, 1.08, 1],
+                  }}
+                  transition={{ duration: 0.7 }}
+                >
+                  <Zap size={54} />
+                </motion.div>
+
+                <h2>{reward.title}</h2>
+                <p>{reward.description}</p>
+                <strong className="reward-xp">+{reward.xpValue} XP</strong>
+
+                <div className="reward-progress">
+                  <motion.div
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 0.8 }}
+                  ></motion.div>
+                </div>
+
+                <span className="reward-message">{reward.message}</span>
+
+                <button className="primary-btn" onClick={continueAfterReward}>
+                  Continuar <Volume2 size={20} />
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
-  );
-}
-
-function FeedbackOverlay({ feedback, progress, onContinue }) {
-  return (
-    <motion.div
-      className="feedback-overlay"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      <motion.div
-        className={`feedback-card feedback-${feedback.kind}`}
-        initial={{ scale: 0.88, y: 30 }}
-        animate={{ scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 220, damping: 16 }}
-      >
-        <motion.div
-          className="feedback-emoji"
-          initial={{ rotate: -8, scale: 0.7 }}
-          animate={{ rotate: [0, -8, 8, 0], scale: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          {feedback.emoji}
-        </motion.div>
-
-        <h2>{feedback.title}</h2>
-        <p>{feedback.message}</p>
-
-        <div className="feedback-xp">+{feedback.xpGained} XP</div>
-
-        <div className="feedback-progress">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          ></motion.div>
-        </div>
-
-        <button className="primary-btn light" onClick={onContinue}>
-          Continuar <ArrowRight size={20} />
-        </button>
-      </motion.div>
-    </motion.div>
   );
 }
 
