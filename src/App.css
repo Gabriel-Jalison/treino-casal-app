@@ -8,6 +8,8 @@ body,
   width: 100%;
   min-height: 100%;
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -16,10 +18,13 @@ body {
   background: #020617;
   color: white;
   overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 button,
-input {
+input,
+textarea,
+select {
   font-family: inherit;
 }
 
@@ -161,7 +166,23 @@ label {
   color: white;
   width: 100%;
   min-width: 0;
-  font-size: 15px;
+  font-size: 16px;
+}
+
+/* Correção iOS: evita zoom automático ao focar campos de texto */
+input,
+textarea,
+select {
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: manipulation;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  font-size: 16px;
 }
 
 .primary-btn {
@@ -703,6 +724,16 @@ label {
   line-height: 1.4;
 }
 
+.settings-card .input-box,
+.settings-card input {
+  max-width: 100%;
+}
+
+.settings-card input {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .settings-row {
   display: flex;
   align-items: center;
@@ -957,6 +988,8 @@ body,
   max-width: 100%;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
